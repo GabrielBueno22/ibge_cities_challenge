@@ -15,27 +15,38 @@ class FetchCitiesCubit extends Cubit<FetchCitiesState> {
 
   fecthCities() async {
     final currentState = state;
-    int currentPage = 0;
-    var currentCityList = [];
-
     if (currentState is FetchCitiesSuccess) {
-      emit(currentState.copyWith(isLoading: true, errorLoadingNextPage: null));
-      currentPage = currentState.page.currentPage;
-      currentCityList = currentState.cities;
-    } else {
-      emit(FetchCitiesInProgress());
+      _onNewPage(currentState);
+      return;
     }
-    final result =
-        await fetchCitiesUsecase.fetchCities(currentPage, PAGES_SIZE);
+    _onFirstFetch();
+  }
 
+  _onFirstFetch() async {
+    emit(FetchCitiesInProgress());
+    final result = await fetchCitiesUsecase.fetchCities(0, PAGES_SIZE);
     result.match(
       (l) {
-        if (currentState is FetchCitiesSuccess) {
-          emit(
-              currentState.copyWith(isLoading: false, errorLoadingNextPage: l));
-          return;
-        }
         emit(FetchCitiesFailed(appError: l));
+      },
+      (r) {
+        emit(
+          FetchCitiesSuccess(page: r, isLoading: false, cities: r.data),
+        );
+      },
+    );
+  }
+
+  _onNewPage(FetchCitiesSuccess currentState) async {
+    int currentPage = currentState.page.currentPage;
+    var currentCityList = currentState.cities;
+    emit(currentState.copyWith(isLoading: true, errorLoadingNextPage: null));
+    currentPage = currentState.page.currentPage;
+    final result =
+        await fetchCitiesUsecase.fetchCities(currentPage, PAGES_SIZE);
+    result.match(
+      (l) {
+        emit(currentState.copyWith(isLoading: false, errorLoadingNextPage: l));
       },
       (r) {
         emit(
